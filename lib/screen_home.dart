@@ -200,8 +200,14 @@
 //   }
 // }
 
+import 'dart:async';
+
+import 'package:cred_app/providerHome.dart';
 import 'package:flutter/material.dart';
 import 'dart:math';
+
+import 'package:logger/logger.dart';
+import 'package:provider/provider.dart';
 
 class Etapa {
   final String nome;
@@ -221,19 +227,22 @@ class Parcela {
   final double valor;
   final DateTime vencimento;
   final List<Etapa> etapas;
+  bool isPaid;
 
-  Parcela({
-    required this.valor,
-    required this.vencimento,
-    required this.etapas,
-  });
+  Parcela(
+      {required this.valor,
+      required this.vencimento,
+      required this.etapas,
+      this.isPaid = false});
 }
 
 class Cliente {
+  final int idCliente;
   final String nome;
   final List<Parcela> parcelas;
 
   Cliente({
+    required this.idCliente,
     required this.nome,
     required this.parcelas,
   });
@@ -252,7 +261,21 @@ class _ScreenHomeState extends State<ScreenHome> {
   @override
   void initState() {
     super.initState();
+    startDayWatcher((hoje) {});
     processarAcoes();
+  }
+
+  void startDayWatcher(Function(DateTime hoje) onDayChanged) {
+    DateTime ultimoDia = DateTime.now();
+
+    Timer.periodic(const Duration(minutes: 1), (timer) {
+      final agora = DateTime.now();
+
+      if (agora.day != ultimoDia.day) {
+        ultimoDia = agora;
+        onDayChanged(agora);
+      }
+    });
   }
 
   final DateTime hoje = DateTime.now();
@@ -301,6 +324,7 @@ class _ScreenHomeState extends State<ScreenHome> {
   final dataEmissao = DateTime.now();
   late final List<Cliente> clientes = [
     Cliente(
+      idCliente: 1,
       nome: 'Mauricio de Medeiros',
       parcelas: [
         Parcela(
@@ -317,7 +341,7 @@ class _ScreenHomeState extends State<ScreenHome> {
     ),
   ];
 
-  Color corDaEtapa(Etapa etapa, Parcela parcela) {
+  Color corDaEtapa(Etapa etapa, Parcela parcela, bool concluida) {
     final hoje = DateTime(
       DateTime.now().year,
       DateTime.now().month,
@@ -336,6 +360,9 @@ class _ScreenHomeState extends State<ScreenHome> {
       parcela.vencimento.day,
     );
 
+    if (concluida) {
+      return Colors.green;
+    }
     // 🔵 Emissão nunca atrasa
     if (etapa.nome == 'Emissão') {
       return Colors.blue;
@@ -532,70 +559,81 @@ class _ScreenHomeState extends State<ScreenHome> {
                                       final bool isCurrent =
                                           currentEtapaIndex == eIndex;
 
-                                      return Column(
-                                        children: [
-                                          MouseRegion(
-                                            cursor: SystemMouseCursors.click,
-                                            child: Tooltip(
-                                              message:
-                                                  '${etapa.nome}\n${etapa.mensagem}\nData: ${etapa.dataAgendada.day}/${etapa.dataAgendada.month}/${etapa.dataAgendada.year}',
-                                              child: Container(
-                                                width: 120,
-                                                height: 55,
-                                                margin:
-                                                    const EdgeInsets.symmetric(
-                                                        horizontal: 8),
-                                                decoration: BoxDecoration(
-                                                  color: corDaEtapa(
-                                                      etapa, parcela),
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
-                                                  border: isCurrent
-                                                      ? Border.all(
-                                                          color: Colors.black54,
-                                                          width: 2,
-                                                        )
-                                                      : null,
-                                                  boxShadow: isCurrent
-                                                      ? [
-                                                          BoxShadow(
-                                                            color: const Color
-                                                                .fromARGB(
-                                                                31, 79, 61, 61),
-                                                            blurRadius: 6,
-                                                            offset:
-                                                                Offset(0, 3),
+                                      return GestureDetector(
+                                        onTap: () {
+                                          setState(() {
+                                            etapa.concluida = true;
+                                          });
+                                          Logger().i(
+                                              'Enviado Mensagem ao Cliente:\n***** ${cliente.idCliente}\n***** ${cliente.nome}\n***** ${etapa.mensagem}\n***** ${etapa.concluida ? 'Etapa Concluída' : ''}');
+                                        },
+                                        child: Column(
+                                          children: [
+                                            MouseRegion(
+                                              cursor: SystemMouseCursors.click,
+                                              child: Tooltip(
+                                                message:
+                                                    '${etapa.nome}\n${etapa.mensagem}\nData: ${etapa.dataAgendada.day}/${etapa.dataAgendada.month}/${etapa.dataAgendada.year}',
+                                                child: Container(
+                                                  width: 120,
+                                                  height: 55,
+                                                  margin: const EdgeInsets
+                                                      .symmetric(horizontal: 8),
+                                                  decoration: BoxDecoration(
+                                                    color: corDaEtapa(
+                                                        etapa,
+                                                        parcela,
+                                                        etapa.concluida),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            8),
+                                                    border: isCurrent
+                                                        ? Border.all(
+                                                            color: Colors.pink,
+                                                            width: 5,
                                                           )
-                                                        ]
-                                                      : null,
-                                                ),
-                                                alignment: Alignment.center,
-                                                child: Text(
-                                                  etapa.nome.contains('dias')
-                                                      ? etapa.nome
-                                                      : etapa.nome
-                                                          .split(' ')
-                                                          .first,
-                                                  textAlign: TextAlign.center,
-                                                  style: const TextStyle(
-                                                      color: Colors.white,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      fontSize: 12),
+                                                        : null,
+                                                    boxShadow: isCurrent
+                                                        ? [
+                                                            BoxShadow(
+                                                              color: const Color
+                                                                  .fromARGB(31,
+                                                                  79, 61, 61),
+                                                              blurRadius: 6,
+                                                              offset:
+                                                                  Offset(0, 3),
+                                                            )
+                                                          ]
+                                                        : null,
+                                                  ),
+                                                  alignment: Alignment.center,
+                                                  child: Text(
+                                                    etapa.nome.contains('dias')
+                                                        ? etapa.nome
+                                                        : etapa.nome
+                                                            .split(' ')
+                                                            .first,
+                                                    textAlign: TextAlign.center,
+                                                    style: const TextStyle(
+                                                        color: Colors.white,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        fontSize: 12),
+                                                  ),
                                                 ),
                                               ),
                                             ),
-                                          ),
-                                          const SizedBox(height: 6),
-                                          if (isCurrent)
-                                            const Icon(
-                                              Icons.arrow_drop_down,
-                                              size: 28,
-                                              color: Colors.black87,
-                                            )
-                                          else
-                                            const SizedBox(height: 28),
-                                        ],
+                                            const SizedBox(height: 6),
+                                            if (isCurrent)
+                                              const Icon(
+                                                Icons.arrow_drop_down,
+                                                size: 28,
+                                                color: Colors.black87,
+                                              )
+                                            else
+                                              const SizedBox(height: 28),
+                                          ],
+                                        ),
                                       );
                                     },
                                   ),
