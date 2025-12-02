@@ -1,252 +1,16 @@
-// import 'package:flutter/material.dart';
-// import 'dart:math';
-
-// class Etapa {
-//   final String nome;
-//   final String mensagem;
-//   final DateTime dataAgendada;
-//   bool enviada;
-
-//   Etapa(
-//       {required this.nome,
-//       required this.mensagem,
-//       required this.dataAgendada,
-//       this.enviada = false});
-// }
-
-// class Parcela {
-//   final double valor;
-//   final DateTime vencimento;
-//   final List<Etapa> etapas;
-//   bool paga;
-
-//   Parcela(
-//       {required this.valor,
-//       required this.vencimento,
-//       required this.etapas,
-//       this.paga = false});
-// }
-
-// class Cliente {
-//   final String nome;
-//   final List<Parcela> parcelas;
-
-//   Cliente({required this.nome, required this.parcelas});
-// }
-
-// class ScreenHome extends StatelessWidget {
-//   final Random random = Random();
-//   final DateTime hoje = DateTime.now();
-
-//   // Gera 8 etapas da régua para cada parcela
-//   List<Etapa> gerarEtapas(DateTime vencimento) {
-//     return [
-//       Etapa(
-//           nome: 'Emissão',
-//           mensagem: 'Parcela emitida',
-//           dataAgendada: DateTime.now(),
-//           enviada: true),
-//       Etapa(
-//           nome: 'Antes do vencimento',
-//           mensagem: 'Lembrete pré-vencimento',
-//           dataAgendada: vencimento.subtract(Duration(days: 2))),
-//       Etapa(
-//           nome: 'Dia do vencimento',
-//           mensagem: 'Aviso no dia do vencimento',
-//           dataAgendada: vencimento),
-//       Etapa(
-//           nome: 'Depois do vencimento',
-//           mensagem: '1º alerta pós-vencimento',
-//           dataAgendada: vencimento.add(Duration(days: 3))),
-//       Etapa(
-//           nome: '4 dias de atraso',
-//           mensagem: '2º alerta',
-//           dataAgendada: vencimento.add(Duration(days: 4))),
-//       Etapa(
-//           nome: '10 dias de atraso',
-//           mensagem: '3º alerta',
-//           dataAgendada: vencimento.add(Duration(days: 10))),
-//       Etapa(
-//           nome: '15 dias de atraso',
-//           mensagem: '4º alerta',
-//           dataAgendada: vencimento.add(Duration(days: 15))),
-//       Etapa(
-//           nome: '30 dias de atraso',
-//           mensagem: 'Último alerta',
-//           dataAgendada: vencimento.add(Duration(days: 30))),
-//     ];
-//   }
-
-//   // Gera 50 clientes com 3–10 parcelas cada
-//   late final List<Cliente> clientes = List.generate(1, (cIndex) {
-//     return Cliente(
-//       nome: 'Mauricio de Medeiros',
-//       parcelas: [
-//         Parcela(
-//             valor: 80,
-//             vencimento: DateTime(2025, 12, 5),
-//             etapas: gerarEtapas(DateTime(2025, 11, 15)),
-//             paga: true)
-//       ],
-//     );
-//   });
-
-//   // Define a cor de cada etapa
-//   Color corEtapa(Etapa etapa) {
-//     if (etapa.enviada) return Colors.green;
-//     if (etapa.dataAgendada.isBefore(hoje)) return Colors.orange;
-//     if (etapa.dataAgendada.day == hoje.day &&
-//         etapa.dataAgendada.month == hoje.month) return Colors.pink;
-//     return Colors.blue;
-//   }
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       appBar: AppBar(title: Text('Régua de Cobrança - Desktop')),
-//       body: Padding(
-//         padding: const EdgeInsets.all(16.0),
-//         child: ListView.builder(
-//           itemCount: clientes.length,
-//           itemBuilder: (context, cIndex) {
-//             final cliente = clientes[cIndex];
-//             return Card(
-//               margin: EdgeInsets.symmetric(vertical: 8),
-//               child: Padding(
-//                 padding: const EdgeInsets.all(16.0),
-//                 child: Column(
-//                   crossAxisAlignment: CrossAxisAlignment.start,
-//                   children: [
-//                     Text(cliente.nome,
-//                         style: TextStyle(
-//                             fontSize: 18, fontWeight: FontWeight.bold)),
-//                     SizedBox(height: 12),
-//                     Column(
-//                       children: cliente.parcelas.map((parcela) {
-//                         return Padding(
-//                           padding: const EdgeInsets.symmetric(vertical: 8.0),
-//                           child: Column(
-//                             crossAxisAlignment: CrossAxisAlignment.start,
-//                             children: [
-//                               Text(
-//                                   'Parcela R\$ ${parcela.valor.toStringAsFixed(2)} - Vencimento: ${parcela.vencimento.day}/${parcela.vencimento.month}/${parcela.vencimento.year}'),
-//                               SizedBox(height: 8),
-//                               SizedBox(
-//                                 height: 90, // aumentei para caber a seta
-//                                 child: ListView.builder(
-//                                   scrollDirection: Axis.horizontal,
-//                                   itemCount: parcela.etapas.length,
-//                                   itemBuilder: (context, eIndex) {
-//                                     final etapa = parcela.etapas[eIndex];
-
-//                                     final bool isHoje =
-//                                         etapa.dataAgendada.day == hoje.day &&
-//                                             etapa.dataAgendada.month ==
-//                                                 hoje.month &&
-//                                             etapa.dataAgendada.year ==
-//                                                 hoje.year;
-
-//                                     return Column(
-//                                       children: [
-//                                         // Quadradinho
-//                                         MouseRegion(
-//                                           cursor: SystemMouseCursors.click,
-//                                           child: Tooltip(
-//                                             message:
-//                                                 '${etapa.nome}\n${etapa.mensagem}\nData: ${etapa.dataAgendada.day}/${etapa.dataAgendada.month}',
-//                                             child: Container(
-//                                               width: 25,
-//                                               height: 35,
-//                                               margin:
-//                                                   const EdgeInsets.symmetric(
-//                                                       horizontal: 4),
-//                                               decoration: BoxDecoration(
-//                                                 color: corEtapa(etapa),
-//                                                 borderRadius:
-//                                                     BorderRadius.circular(4),
-//                                               ),
-//                                             ),
-//                                           ),
-//                                         ),
-
-//                                         // SETA ↓ somente se for a etapa do dia
-//                                         if (isHoje)
-//                                           const Icon(
-//                                             Icons.arrow_drop_down,
-//                                             size: 32,
-//                                             color: Colors.black87,
-//                                           )
-//                                         else
-//                                           const SizedBox(height: 32),
-//                                       ],
-//                                     );
-//                                   },
-//                                 ),
-//                               ),
-//                               SizedBox(height: 8),
-//                             ],
-//                           ),
-//                         );
-//                       }).toList(),
-//                     )
-//                   ],
-//                 ),
-//               ),
-//             );
-//           },
-//         ),
-//       ),
-//     );
-//   }
-// }
-
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:cred_app/controllers/screenHome_controller.dart';
+import 'package:cred_app/model/cliente_model.dart';
+import 'package:cred_app/model/etapa_model.dart';
+import 'package:cred_app/model/parcela_model.dart';
 import 'package:cred_app/providerHome.dart';
 import 'package:flutter/material.dart';
 import 'dart:math';
 
 import 'package:logger/logger.dart';
 import 'package:provider/provider.dart';
-
-class Etapa {
-  final String nome;
-  final String mensagem;
-  final DateTime dataAgendada;
-  bool concluida;
-
-  Etapa({
-    required this.nome,
-    required this.mensagem,
-    required this.dataAgendada,
-    this.concluida = false,
-  });
-}
-
-class Parcela {
-  final double valor;
-  final DateTime vencimento;
-  final List<Etapa> etapas;
-  bool isPaid;
-
-  Parcela(
-      {required this.valor,
-      required this.vencimento,
-      required this.etapas,
-      this.isPaid = false});
-}
-
-class Cliente {
-  final int idCliente;
-  final String nome;
-  final List<Parcela> parcelas;
-
-  Cliente({
-    required this.idCliente,
-    required this.nome,
-    required this.parcelas,
-  });
-}
 
 class ScreenHome extends StatefulWidget {
   ScreenHome({super.key});
@@ -257,89 +21,45 @@ class ScreenHome extends StatefulWidget {
 
 class _ScreenHomeState extends State<ScreenHome> {
   final Random random = Random();
+  late List<Cliente> clientes = [];
 
   @override
   void initState() {
     super.initState();
-    startDayWatcher((hoje) {});
-    processarAcoes();
+    carregar();
   }
 
-  void startDayWatcher(Function(DateTime hoje) onDayChanged) {
-    DateTime ultimoDia = DateTime.now();
-
-    Timer.periodic(const Duration(minutes: 1), (timer) {
-      final agora = DateTime.now();
-
-      if (agora.day != ultimoDia.day) {
-        ultimoDia = agora;
-        onDayChanged(agora);
-      }
-    });
+  Future<void> carregar() async {
+    clientes = await homeController().carregarClientes();
+    processarAcoes();
+    setState(() {}); // atualiza a tela
   }
 
   final DateTime hoje = DateTime.now();
   bool expandido = false;
+  int? clienteExpandido;
 
-  // Gera 8 etapas da régua para cada parcela (baseado no vencimento passado)
-  List<Etapa> gerarEtapas(DateTime vencimento, DateTime dataEmissao) {
-    return [
-      Etapa(
-        nome: 'Emissão',
-        mensagem: 'Parcela emitida',
-        dataAgendada: dataEmissao,
-      ),
-      Etapa(
-          nome: 'Antes do\nvencimento',
-          mensagem: 'Lembrete pré-vencimento',
-          dataAgendada: vencimento.subtract(Duration(days: 2))),
-      Etapa(
-          nome: 'Dia\nvencimento',
-          mensagem: 'Aviso no dia do vencimento',
-          dataAgendada: vencimento),
-      Etapa(
-          nome: '3 dias após\nvencimento',
-          mensagem: '1º alerta pós-vencimento',
-          dataAgendada: vencimento.add(Duration(days: 3))),
-      Etapa(
-          nome: '4 dias de atraso',
-          mensagem: '2º alerta',
-          dataAgendada: vencimento.add(Duration(days: 4))),
-      Etapa(
-          nome: '10 dias de atraso',
-          mensagem: '3º alerta',
-          dataAgendada: vencimento.add(Duration(days: 10))),
-      Etapa(
-          nome: '15 dias de atraso',
-          mensagem: '4º alerta',
-          dataAgendada: vencimento.add(Duration(days: 15))),
-      Etapa(
-          nome: '30 dias de atraso',
-          mensagem: 'Último alerta',
-          dataAgendada: vencimento.add(Duration(days: 30))),
-    ];
-  }
-
-  // Exemplo de clientes/parcela (você pode gerar mais)
   final dataEmissao = DateTime.now();
-  late final List<Cliente> clientes = [
-    Cliente(
-      idCliente: 1,
-      nome: 'Mauricio de Medeiros',
-      parcelas: [
-        Parcela(
-          valor: 80,
-          vencimento: DateTime(2025, 12, 02),
-          etapas: gerarEtapas(DateTime(2025, 12, 02), dataEmissao),
-        ),
-        Parcela(
-          valor: 80,
-          vencimento: DateTime(2026, 01, 07),
-          etapas: gerarEtapas(DateTime(2026, 01, 07), dataEmissao),
-        ),
-      ],
-    ),
-  ];
+  // late final List<Cliente> clientes = [
+  //   Cliente(
+  //     idCliente: 1,
+  //     nome: 'Mauricio de Medeiros',
+  //     parcelas: [
+  //       Parcela(
+  //         valor: 80,
+  //         vencimento: DateTime(2025, 12, 02),
+  //         etapas:
+  //             homeController.gerarEtapas(DateTime(2025, 12, 02), dataEmissao),
+  //       ),
+  //       Parcela(
+  //         valor: 80,
+  //         vencimento: DateTime(2026, 01, 07),
+  //         etapas:
+  //             homeController.gerarEtapas(DateTime(2026, 01, 07), dataEmissao),
+  //       ),
+  //     ],
+  //   ),
+  // ];
 
   Color corDaEtapa(Etapa etapa, Parcela parcela, bool concluida) {
     final hoje = DateTime(
@@ -473,7 +193,11 @@ class _ScreenHomeState extends State<ScreenHome> {
                     GestureDetector(
                       onTap: () {
                         setState(() {
-                          expandido = !expandido;
+                          if (clienteExpandido == cIndex) {
+                            clienteExpandido = null; // recolher
+                          } else {
+                            clienteExpandido = cIndex; // expandir só este
+                          }
                         });
                       },
                       child: Row(
@@ -496,7 +220,7 @@ class _ScreenHomeState extends State<ScreenHome> {
                               width: 15,
                               decoration: BoxDecoration(
                                 color: clienteTemAtraso(cliente)
-                                    ? Colors.pink
+                                    ? Colors.red
                                     : Colors.blue,
                                 borderRadius: BorderRadius.circular(3),
                                 border: Border.all(color: Colors.black12),
@@ -506,7 +230,7 @@ class _ScreenHomeState extends State<ScreenHome> {
                         ],
                       ),
                     ),
-                    if (expandido) ...[
+                    if (clienteExpandido == cIndex) ...[
                       const SizedBox(height: 12),
                       Column(
                         children: cliente.parcelas.map((parcela) {
@@ -589,7 +313,7 @@ class _ScreenHomeState extends State<ScreenHome> {
                                                             8),
                                                     border: isCurrent
                                                         ? Border.all(
-                                                            color: Colors.pink,
+                                                            color: Colors.black,
                                                             width: 5,
                                                           )
                                                         : null,
