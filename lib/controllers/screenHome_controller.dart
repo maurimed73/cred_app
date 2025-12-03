@@ -1,9 +1,82 @@
 import 'dart:convert';
-
 import 'package:cred_app/model/cliente_model.dart';
 import 'package:cred_app/model/etapa_model.dart';
+import 'package:flutter/material.dart';
 
 class homeController {
+  // Json vindo da api, ou outro software - VBA-Excel
+  String json = '''
+ [
+  {
+    "idCliente": 1,
+    "nome": "Carlos Silva",
+    "dataVenda": "2025-10-31",
+    "parcelas": [
+      { "idParcela": 1,
+        "valor": 120.5,
+        "vencimento": "2025-12-02"
+      },
+       {
+        "idParcela": 1,
+        "valor": 120.5,
+        "vencimento": "2026-01-02"
+      }
+    ]
+  },
+  {
+    "idCliente": 2,
+    "nome": "Mauricio de Medeiros",
+    "dataVenda": "2025-10-05",
+    "parcelas": [
+      {
+        "idParcela": 1,
+        "valor": 40.0,
+        "vencimento": "2025-11-05"
+      },
+       {
+        "idParcela": 1,
+        "valor": 40.0,
+        "vencimento": "2025-12-05"
+      }
+    ]
+  },
+   {
+    "idCliente": 1,
+    "nome": "Carlos Silva",
+    "dataVenda": "2025-12-10",
+    "parcelas": [
+      {
+        "idParcela": 1,
+        "valor": 120.5,
+        "vencimento": "2026-01-10"
+      },
+       {
+        "idParcela": 1,
+        "valor": 120.5,
+        "vencimento": "2026-02-10"
+      }
+    ]
+  },
+  {
+    "idCliente": 2,
+    "nome": "Mauricio de Medeiros",
+    "dataVenda": "2025-10-05",
+    "parcelas": [
+      {
+        "idParcela": 1,
+        "valor": 40.0,
+        "vencimento": "2025-11-05"
+      },
+       {
+        "idParcela": 1,
+        "valor": 40.0,
+        "vencimento": "2025-12-05"
+      }
+    ]
+  }
+ ]
+''';
+
 // Gera 8 etapas da régua para cada parcela (baseado no vencimento passado)
   static List<Etapa> gerarEtapas(DateTime vencimento, DateTime dataEmissao) {
     return [
@@ -13,7 +86,7 @@ class homeController {
         dataAgendada: dataEmissao,
       ),
       Etapa(
-          nome: 'Dia\nvencimento',
+          nome: 'Lembrete',
           mensagem: 'Lembrete pré-vencimento',
           dataAgendada: vencimento.subtract(Duration(days: 2))),
       Etapa(
@@ -43,46 +116,15 @@ class homeController {
     ];
   }
 
-  String json = '''
- [
-  {
-    "idCliente": 1,
-    "nome": "Carlos Silva",
-    "parcelas": [
-      {
-        "valor": 120.5,
-        "vencimento": "2026-01-10"              
-      },
-       {
-        "valor": 120.5,
-        "vencimento": "2026-02-10"              
-      }
-    ]
-  },
-  {
-    "idCliente": 1,
-    "nome": "Mauricio de Medeiros",
-    "parcelas": [
-      {
-        "valor": 40.0,
-        "vencimento": "2025-12-05"              
-      },
-       {
-        "valor": 40.0,
-        "vencimento": "2025-11-05"              
-      }
-    ]
-  }
-]
-''';
-
   List<Cliente> clientes = [];
-  Future<List<Cliente>> carregarClientes() async {
+
+  Future<List<Cliente>> loadClients() async {
     final data = jsonDecode(json);
+
     for (var element in data) {
       for (var parcela in element['parcelas']) {
         DateTime vencimento = DateTime.parse(parcela['vencimento']);
-        DateTime dataEmissao = vencimento.subtract(Duration(days: 30));
+        DateTime dataEmissao = DateTime.parse(element['dataVenda']);
         parcela['etapas'] = gerarEtapas(vencimento, dataEmissao).map((etapa) {
           return {
             'nome': etapa.nome,
@@ -92,15 +134,60 @@ class homeController {
           };
         }).toList();
         parcela['isPaid'] = false; // Inicialmente não paga
+        parcela['idCliente'] = element['idCliente'];
+
+        print("Valor da parcela: ${parcela['valor']}");
+
+        for (var etapa in parcela['etapas']) {
+          print("Etapa: ${etapa['nome']}");
+        }
       }
-      print(element['nome']);
+
+      // print(
+      //     'ID: ${element['idCliente']} - ${element['nome']} / ${element['parcelas']} ');
 
       clientes.add(Cliente.fromJson(element));
     }
     // clientes = (data as List)
     //     .map((clienteJson) => Cliente.fromJson(clienteJson))
     //     .toList();
-
+    //print(clientes.length);
     return clientes;
+  }
+
+  bool clienteTemAtraso(Cliente cliente) {
+    final hoje =
+        DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+
+    for (var parcela in cliente.parcelas) {
+      final vencimento = DateTime(
+        parcela.vencimento.year,
+        parcela.vencimento.month,
+        parcela.vencimento.day,
+      );
+
+      if (!hoje.isAfter(vencimento)) continue;
+
+      for (var etapa in parcela.etapas) {
+        if (etapa.nome == 'Emissão') continue;
+
+        final dataEtapa = DateTime(
+          etapa.dataAgendada.year,
+          etapa.dataAgendada.month,
+          etapa.dataAgendada.day,
+        );
+
+        final etapaPodeAtrasar = dataEtapa.isAfter(vencimento);
+
+        final estaAtrasada =
+            etapaPodeAtrasar && dataEtapa.isBefore(hoje) && !etapa.concluida;
+
+        if (estaAtrasada) {
+          return true;
+        }
+      }
+    }
+
+    return false;
   }
 }

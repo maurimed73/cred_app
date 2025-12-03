@@ -1,16 +1,11 @@
 import 'dart:async';
-import 'dart:convert';
-
 import 'package:cred_app/controllers/screenHome_controller.dart';
 import 'package:cred_app/model/cliente_model.dart';
-import 'package:cred_app/model/etapa_model.dart';
-import 'package:cred_app/model/parcela_model.dart';
-import 'package:cred_app/providerHome.dart';
+import 'package:cred_app/util/corEtapa.dart';
+import 'package:cred_app/util/mostrarToast.dart';
+import 'package:cred_app/util/textCarimbo.dart';
 import 'package:flutter/material.dart';
-import 'dart:math';
-
 import 'package:logger/logger.dart';
-import 'package:provider/provider.dart';
 
 class ScreenHome extends StatefulWidget {
   ScreenHome({super.key});
@@ -20,162 +15,163 @@ class ScreenHome extends StatefulWidget {
 }
 
 class _ScreenHomeState extends State<ScreenHome> {
-  final Random random = Random();
   late List<Cliente> clientes = [];
+  bool marcadoAtrasado = false;
+  bool marcadoIniciais = false;
+  bool expandido = false;
+
+  List<Cliente> todosClientes = []; // lista completa
+  List<Cliente> pagamentosAtrasados = [];
+  List<Cliente> pagamentosEmDia = [];
+  List<Cliente> clientesAcoesHoje = [];
+
+  DateTime hoje = DateTime.now();
+  late DateTime hojeSemHora;
+
+  int? clienteExpandido;
+
+  //final dataEmissao = DateTime.now();
 
   @override
   void initState() {
     super.initState();
-    carregar();
+    hojeSemHora = DateTime(hoje.year, hoje.month, hoje.day);
+    LoadList();
   }
 
-  Future<void> carregar() async {
-    clientes = await homeController().carregarClientes();
+  Future<void> LoadList() async {
+    todosClientes = await homeController().loadClients();
     processarAcoes();
+
+    separarPagamentos(todosClientes); // listaDeClientes é sua lista completa
+    clientes = List.from(todosClientes); // inicialmente mostra todos
+    clientesAcoesHoje = clientesComEtapaHoje(todosClientes);
     setState(() {}); // atualiza a tela
   }
 
-  final DateTime hoje = DateTime.now();
-  bool expandido = false;
-  int? clienteExpandido;
-
-  final dataEmissao = DateTime.now();
-  // late final List<Cliente> clientes = [
-  //   Cliente(
-  //     idCliente: 1,
-  //     nome: 'Mauricio de Medeiros',
-  //     parcelas: [
-  //       Parcela(
-  //         valor: 80,
-  //         vencimento: DateTime(2025, 12, 02),
-  //         etapas:
-  //             homeController.gerarEtapas(DateTime(2025, 12, 02), dataEmissao),
-  //       ),
-  //       Parcela(
-  //         valor: 80,
-  //         vencimento: DateTime(2026, 01, 07),
-  //         etapas:
-  //             homeController.gerarEtapas(DateTime(2026, 01, 07), dataEmissao),
-  //       ),
-  //     ],
-  //   ),
-  // ];
-
-  Color corDaEtapa(Etapa etapa, Parcela parcela, bool concluida) {
-    final hoje = DateTime(
-      DateTime.now().year,
-      DateTime.now().month,
-      DateTime.now().day,
-    );
-
-    final dataEtapa = DateTime(
-      etapa.dataAgendada.year,
-      etapa.dataAgendada.month,
-      etapa.dataAgendada.day,
-    );
-
-    final vencimento = DateTime(
-      parcela.vencimento.year,
-      parcela.vencimento.month,
-      parcela.vencimento.day,
-    );
-
-    if (concluida) {
-      return Colors.green;
-    }
-    // 🔵 Emissão nunca atrasa
-    if (etapa.nome == 'Emissão') {
-      return Colors.blue;
-    }
-
-    // 🔵 Etapa futura → azul
-    if (dataEtapa.isAfter(hoje)) {
-      return Colors.blue;
-    }
-
-    // 🔵 Etapa hoje → azul
-    if (dataEtapa == hoje) {
-      return Colors.blue;
-    }
-
-    // 🔵 Se a etapa está antes do vencimento → NÃO ATRASA
-    if (dataEtapa.isBefore(vencimento)) {
-      return Colors.blue;
-    }
-
-    // 🔴 Só fica vermelho se:
-    // etapa atrasada E já passou do vencimento
-    if (dataEtapa.isBefore(hoje) && hoje.isAfter(vencimento)) {
-      return Colors.red;
-    }
-
-    return Colors.blue;
-  }
-
-  bool clienteTemAtraso(Cliente cliente) {
+  void separarPagamentos(List<Cliente> lista) {
+    pagamentosAtrasados = [];
     final hoje =
         DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
 
-    for (var parcela in cliente.parcelas) {
-      final vencimento = DateTime(
-        parcela.vencimento.year,
-        parcela.vencimento.month,
-        parcela.vencimento.day,
-      );
+    for (var cliente in lista) {
+      bool atrasado = false;
 
-      if (!hoje.isAfter(vencimento)) continue;
+      for (var parcela in cliente.parcelas) {
+        final vencimento = DateTime(parcela.vencimento.year,
+            parcela.vencimento.month, parcela.vencimento.day);
 
-      for (var etapa in parcela.etapas) {
-        if (etapa.nome == 'Emissão') continue;
+        for (var etapa in parcela.etapas) {
+          if (etapa.nome == 'Emissão') continue;
 
-        final dataEtapa = DateTime(
-          etapa.dataAgendada.year,
-          etapa.dataAgendada.month,
-          etapa.dataAgendada.day,
-        );
+          final dataEtapa = DateTime(etapa.dataAgendada.year,
+              etapa.dataAgendada.month, etapa.dataAgendada.day);
+          final etapaPodeAtrasar = dataEtapa.isAfter(vencimento);
+          final estaAtrasada =
+              etapaPodeAtrasar && dataEtapa.isBefore(hoje) && !etapa.concluida;
 
-        final etapaPodeAtrasar = dataEtapa.isAfter(vencimento);
-
-        final estaAtrasada =
-            etapaPodeAtrasar && dataEtapa.isBefore(hoje) && !etapa.concluida;
-
-        if (estaAtrasada) {
-          return true;
+          if (estaAtrasada) {
+            atrasado = true;
+            break;
+          }
         }
+        if (atrasado) break;
+      }
+
+      if (atrasado) {
+        pagamentosAtrasados.add(cliente);
       }
     }
-
-    return false;
   }
 
-  Etapa? etapaAtual(Parcela parcela) {
-    final hoje = DateTime(
-      DateTime.now().year,
-      DateTime.now().month,
-      DateTime.now().day,
-    );
+  // Etapa? etapaAtual(Parcela parcela) {
+  //   final hoje = DateTime(
+  //     DateTime.now().year,
+  //     DateTime.now().month,
+  //     DateTime.now().day,
+  //   );
+  //   for (var etapa in parcela.etapas) {
+  //     final data = DateTime(
+  //       etapa.dataAgendada.year,
+  //       etapa.dataAgendada.month,
+  //       etapa.dataAgendada.day,
+  //     );
+  //     // A etapa atual é a primeira cuja data chegou ou é hoje
+  //     if (!data.isAfter(hoje)) {
+  //       return etapa;
+  //     }
+  //   }
+  //   // Se nenhuma etapa chegou ainda → Emissão é a atual
+  //   return parcela.etapas.first;
+  // }
 
-    for (var etapa in parcela.etapas) {
-      final data = DateTime(
-        etapa.dataAgendada.year,
-        etapa.dataAgendada.month,
-        etapa.dataAgendada.day,
-      );
-
-      // A etapa atual é a primeira cuja data chegou ou é hoje
-      if (!data.isAfter(hoje)) {
-        return etapa;
+  List<Cliente> clientesComEtapaHoje(List<Cliente> lista) {
+    return lista.where((cliente) {
+      // verifica se alguma parcela tem etapa agendada para hoje
+      for (var parcela in cliente.parcelas) {
+        for (var etapa in parcela.etapas) {
+          final dataEtapa = DateTime(
+            etapa.dataAgendada.year,
+            etapa.dataAgendada.month,
+            etapa.dataAgendada.day,
+          );
+          if (dataEtapa == hojeSemHora) {
+            return true; // cliente tem etapa hoje
+          }
+        }
       }
-    }
-
-    // Se nenhuma etapa chegou ainda → Emissão é a atual
-    return parcela.etapas.first;
+      return false; // nenhuma etapa hoje
+    }).toList();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Régua de Cobrança - Desktop')),
+      appBar: AppBar(
+          title: Row(
+        children: [
+          const Text('Régua de Cobrança - Desktop'),
+          SizedBox(width: 30),
+          Checkbox(
+            activeColor: Colors.red,
+            value: marcadoAtrasado,
+            onChanged: (bool? value) {
+              setState(() {
+                marcadoAtrasado = value ?? false;
+                clientes = marcadoAtrasado
+                    ? List.from(pagamentosAtrasados)
+                    : List.from(todosClientes);
+              });
+            },
+          ),
+          const Text(
+            'Atrasados',
+            style: TextStyle(fontSize: 14, color: Colors.red),
+          ),
+          SizedBox(width: 30),
+          Checkbox(
+            activeColor: Colors.blueAccent,
+            value: marcadoIniciais,
+            onChanged: (bool? value) {
+              if (marcadoAtrasado) {
+                ToastUtils.showDesktopToast(context,
+                    "Opção não habilitada quando filtro atrasado habilitado");
+                return;
+              }
+              setState(() {
+                marcadoIniciais = value ?? false;
+                clientes = marcadoIniciais
+                    ? List.from(clientesAcoesHoje)
+                    : List.from(todosClientes);
+              });
+            },
+          ),
+          const Text(
+            'Hoje',
+            style: TextStyle(fontSize: 14, color: Colors.blue),
+          ),
+        ],
+      )),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: ListView.builder(
@@ -219,9 +215,10 @@ class _ScreenHomeState extends State<ScreenHome> {
                               height: 15,
                               width: 15,
                               decoration: BoxDecoration(
-                                color: clienteTemAtraso(cliente)
-                                    ? Colors.red
-                                    : Colors.blue,
+                                color:
+                                    homeController().clienteTemAtraso(cliente)
+                                        ? Colors.red
+                                        : Colors.blue,
                                 borderRadius: BorderRadius.circular(3),
                                 border: Border.all(color: Colors.black12),
                               ),
@@ -285,11 +282,13 @@ class _ScreenHomeState extends State<ScreenHome> {
 
                                       return GestureDetector(
                                         onTap: () {
-                                          setState(() {
-                                            etapa.concluida = true;
-                                          });
-                                          Logger().i(
-                                              'Enviado Mensagem ao Cliente:\n***** ${cliente.idCliente}\n***** ${cliente.nome}\n***** ${etapa.mensagem}\n***** ${etapa.concluida ? 'Etapa Concluída' : ''}');
+                                          if (etapa.nome != 'Emissão') {
+                                            setState(() {
+                                              etapa.concluida = true;
+                                            });
+                                            Logger().i(
+                                                'Enviado Mensagem ao Cliente:\n***** ${cliente.idCliente}\n***** ${cliente.nome}\n***** ${etapa.mensagem}\n***** ${etapa.concluida ? 'Etapa Concluída' : ''}');
+                                          }
                                         },
                                         child: Column(
                                           children: [
@@ -304,7 +303,7 @@ class _ScreenHomeState extends State<ScreenHome> {
                                                   margin: const EdgeInsets
                                                       .symmetric(horizontal: 8),
                                                   decoration: BoxDecoration(
-                                                    color: corDaEtapa(
+                                                    color: Coretapa.corDaEtapa(
                                                         etapa,
                                                         parcela,
                                                         etapa.concluida),
@@ -331,18 +330,60 @@ class _ScreenHomeState extends State<ScreenHome> {
                                                         : null,
                                                   ),
                                                   alignment: Alignment.center,
-                                                  child: Text(
-                                                    etapa.nome.contains('dias')
-                                                        ? etapa.nome
-                                                        : etapa.nome
-                                                            .split(' ')
-                                                            .first,
-                                                    textAlign: TextAlign.center,
-                                                    style: const TextStyle(
-                                                        color: Colors.white,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                        fontSize: 12),
+                                                  child: Column(
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .center,
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .center,
+                                                    children: [
+                                                      Stack(
+                                                        alignment:
+                                                            Alignment.center,
+                                                        children: [
+                                                          Container(
+                                                            color: Colors
+                                                                .transparent,
+                                                            alignment: Alignment
+                                                                .center,
+                                                            child: Text(
+                                                              etapa.nome
+                                                                      .contains(
+                                                                          'dias')
+                                                                  ? etapa.nome
+                                                                  : etapa.nome
+                                                                      .split(
+                                                                          ' ')
+                                                                      .first,
+                                                              textAlign:
+                                                                  TextAlign
+                                                                      .center,
+                                                              style: TextStyle(
+                                                                  color: etapa.concluida
+                                                                      ? Colors
+                                                                          .white38
+                                                                      : Colors
+                                                                          .white,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .bold,
+                                                                  fontSize: 12),
+                                                            ),
+                                                          ),
+                                                          etapa.concluida
+                                                              ? DiagonalStampText(
+                                                                  text:
+                                                                      "Enviado")
+                                                              : Container(
+                                                                  height: 45,
+                                                                  width: 110,
+                                                                  color: Colors
+                                                                      .transparent,
+                                                                ),
+                                                        ],
+                                                      ),
+                                                    ],
                                                   ),
                                                 ),
                                               ),
@@ -387,29 +428,29 @@ class _ScreenHomeState extends State<ScreenHome> {
 
           // Se chegou o dia dessa etapa
           if (!etapa.dataAgendada.isAfter(hoje) && etapa.concluida == false) {
-            executarAcao(etapa); // << envia mensagem, registra log etc.
+            // executarAcao(etapa); // << envia mensagem, registra log etc.
           }
         }
       }
     }
   }
 
-  void executarAcao(Etapa etapa) {
-    print("Executando ação: ${etapa.nome}");
+  // void executarAcao(Etapa etapa) {
+  //   print("Executando ação: ${etapa.nome}");
 
-    // Exemplo: envio de email
-    if (etapa.nome.contains("Emissão")) {
-      // enviar email inicial
-    }
+  //   // Exemplo: envio de email
+  //   if (etapa.nome.contains("Emissão")) {
+  //     // enviar email inicial
+  //   }
 
-    if (etapa.nome.contains("vencimento")) {
-      // enviar aviso pre-vencimento
-    }
+  //   if (etapa.nome.contains("vencimento")) {
+  //     // enviar aviso pre-vencimento
+  //   }
 
-    if (etapa.nome.contains("atraso")) {
-      // enviar cobrança / WhatsApp
-    }
+  //   if (etapa.nome.contains("atraso")) {
+  //     // enviar cobrança / WhatsApp
+  //   }
 
-    // Ou você pode transformar cada etapa em um enum e deixar mais organizado
-  }
+  //   // Ou você pode transformar cada etapa em um enum e deixar mais organizado
+  // }
 }
